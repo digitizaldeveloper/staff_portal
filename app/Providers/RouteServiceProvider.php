@@ -17,7 +17,9 @@ class RouteServiceProvider extends ServiceProvider
      *
      * @var string
      */
-    public const HOME = '/home';
+    // public const HOME = '/dashboard';
+    public const HOME = '/redirect-by-role';
+
 
     /**
      * Define your route model bindings, pattern filters, and other route configuration.
@@ -29,12 +31,29 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         $this->routes(function () {
-            Route::middleware('api')
+    Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));
 
-            Route::middleware('web')
+    Route::middleware('web')
                 ->group(base_path('routes/web.php'));
+
+    Route::middleware('web')
+    ->group(base_path('routes/blogs.php'));
+
+    Route::middleware('web')
+    ->group(base_path('routes/jobs.php'));
+    Route::middleware('web')
+    ->group(base_path('routes/staff.php'));
+    Route::middleware('web')
+    ->group(base_path('routes/clients.php'));
+    Route::middleware('web')
+    ->group(base_path('routes/timesheet.php'));
+    Route::middleware('web')
+    ->group(base_path('routes/payslips.php'));
+    Route::middleware('web')
+    ->group(base_path('routes/certification.php'));
+
         });
     }
 }

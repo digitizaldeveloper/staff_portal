@@ -1,231 +1,191 @@
 @extends('layouts.app')
 
-@section('title','Admin Dashboard')
-@section('page-heading','Admin Dashboard')
-
-@section('sidebar')
-<a href="{{ route('admin.dashboard') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🏠 Dashboard</a>
-<a href="{{ route('admin.timesheets') }}" class="block px-3 py-2 rounded-lg bg-gray-100 font-medium">🕒 Timesheets</a>
-<a href="{{ route('admin.staff-management') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🧑‍💼 Staff</a>
-<a href="{{ route('admin.payroll') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🧾 Payroll</a>
-<a href="{{ route('admin.jobs-applications') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">💼 Jobs & Applications</a>
-<a href="#" class="block px-3 py-2 rounded-lg hover:bg-gray-50">⚙️ Settings</a>
-
-@endsection
+@section('page-heading', 'Admin Dashboard')
 
 @section('content')
 @php
-  use Illuminate\Support\Carbon;
+    use Illuminate\Support\Carbon;
 
-  $kpis = [
-    ['label'=>'Active Staff','value'=>48,'delta'=>'+3 this week'],
-    ['label'=>'Pending Timesheets','value'=>6,'delta'=>'2 need review'],
-    ['label'=>'Payslips This Month','value'=>45,'delta'=>'Sep 2025'],
-    ['label'=>'Open Jobs','value'=>3,'delta'=>'7 applications'],
-  ];
+    $stats = array_merge([
+        'staff'        => 0,
+        'clients'      => 0,
+        'jobs'         => 0,
+        'timesheets'   => 0,
+        'pending'      => 0,
+    ], $metrics ?? []);
 
-  $recentTimesheets = collect([
-    ['user'=>'Ali Raza','week'=>'29 Sep – 05 Oct','hours'=>40,'status'=>'submitted','at'=>Carbon::now()->setTime(9,30)],
-    ['user'=>'Hina Fatima','week'=>'22 – 28 Sep','hours'=>38,'status'=>'approved','at'=>Carbon::now()->subDays(2)->setTime(14,10)],
-    ['user'=>'Ahmed Khan','week'=>'22 – 28 Sep','hours'=>36,'status'=>'rejected','at'=>Carbon::now()->subDays(3)->setTime(11,45)],
-    ['user'=>'Bilal Ahmed','week'=>'29 Sep – 05 Oct','hours'=>41,'status'=>'submitted','at'=>Carbon::now()->setTime(10,5)],
-  ]);
-
-  $applications = collect([
-    ['name'=>'Usman Tariq','job'=>'Security Supervisor','submitted'=>Carbon::now()->subHours(6),'cv'=>'#'],
-    ['name'=>'Sana Iqbal','job'=>'Night Shift Guard','submitted'=>Carbon::now()->subDay(),'cv'=>'#'],
-    ['name'=>'Zain Ali','job'=>'Control Room Operator','submitted'=>Carbon::now()->subDays(2),'cv'=>'#'],
-  ]);
-
-  $expiring = collect([
-    ['staff'=>'Khalid Mehmood','cert'=>'First Aid L1','expires'=>Carbon::now()->addDays(9)],
-    ['staff'=>'Sara Khan','cert'=>'Guard License','expires'=>Carbon::now()->addDays(27)],
-    ['staff'=>'Imran Aziz','cert'=>'PSIRA','expires'=>Carbon::now()->subDays(3)],
-  ]);
-
-  $badge = fn($s) => [
-    'submitted' => 'bg-blue-50 text-blue-700 ring-blue-600/20',
-    'approved'  => 'bg-green-50 text-green-700 ring-green-600/20',
-    'rejected'  => 'bg-red-50 text-red-700 ring-red-600/20',
-    'modified'  => 'bg-amber-50 text-amber-800 ring-amber-600/20',
-  ][$s] ?? 'bg-gray-50 text-gray-700 ring-gray-600/20';
-
-  $expCls = function (Carbon $d) {
-    $days = now()->diffInDays($d, false);
-    if ($days < 0) return 'bg-red-50 text-red-700 ring-red-600/20';
-    if ($days <= 14) return 'bg-amber-50 text-amber-800 ring-amber-600/20';
-    return 'bg-green-50 text-green-700 ring-green-600/20';
-  };
+    $recentStaff       = collect($staff ?? [])->take(5);
+    $recentJobs        = collect($jobs ?? [])->take(5);
+    $pendingTimesheets = collect($timesheets ?? [])->where('status', 'pending')->take(5);
 @endphp
 
-{{-- KPIs --}}
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-  @foreach($kpis as $i => $k)
-    <div class="rounded-xl border border-gray-200 bg-white p-4">
-      <div class="flex items-center justify-between">
-        <p class="text-sm text-gray-600">{{ $k['label'] }}</p>
-        <span class="text-[11px] rounded-md bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100 px-2 py-0.5">Live</span>
-      </div>
-      <div class="mt-2 flex items-end justify-between">
-        <p class="text-2xl font-semibold text-gray-900">{{ $k['value'] }}</p>
-        {{-- tiny inline sparkline (decorative) --}}
-        <svg viewBox="0 0 100 24" class="h-6 w-24">
-          <polyline fill="none" stroke="currentColor" stroke-width="2" class="text-brand-500"
-            points="{{ $i===0?'0,18 20,12 40,14 60,9 80,11 100,6':($i===1?'0,10 20,12 40,8 60,14 80,9 100,12':($i===2?'0,14 20,16 40,12 60,9 80,13 100,10':'0,12 20,10 40,14 60,8 80,12 100,7')) }}" />
-        </svg>
-      </div>
-      <p class="mt-1 text-xs text-gray-500">{{ $k['delta'] }}</p>
-    </div>
-  @endforeach
-</div>
+<div class="space-y-6">
 
-{{-- Main grid --}}
-<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-  {{-- Timesheets Panel --}}
-  <section class="xl:col-span-2 rounded-xl border border-gray-200 bg-white overflow-hidden">
-    <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-      <div>
-        <h3 class="text-base font-semibold text-gray-900">Timesheets</h3>
-        <p class="text-xs text-gray-500">Review staff-submitted timesheets.</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="{{ url('/admin/timesheets') }}" class="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">Open Manager</a>
-      </div>
+    <div class="rounded-3xl border border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-500 px-8 py-10 text-white shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-6">
+            <div>
+                <p class="text-sm uppercase tracking-[0.2em] text-indigo-200">Overview</p>
+                <h1 class="mt-3 text-3xl font-semibold">Control room</h1>
+                <p class="mt-2 text-indigo-100">
+                    Monitor staff activity, client requests, and open jobs from a single pane.
+                </p>
+            </div>
+            <div class="rounded-2xl border border-white/30 bg-white/10 px-6 py-4 text-center">
+                <p class="text-4xl font-bold">{{ $stats['pending'] }}</p>
+                <p class="text-sm font-medium text-indigo-100">Pending approvals</p>
+            </div>
+        </div>
     </div>
-    <div class="p-4 overflow-x-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-gray-50">
-          <tr class="text-left text-gray-600">
-            <th class="px-4 py-2">Employee</th>
-            <th class="px-4 py-2">Week</th>
-            <th class="px-4 py-2">Hours</th>
-            <th class="px-4 py-2">Submitted</th>
-            <th class="px-4 py-2">Status</th>
-            <th class="px-4 py-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          @foreach($recentTimesheets as $r)
-            <tr>
-              <td class="px-4 py-2 font-medium text-gray-900">{{ $r['user'] }}</td>
-              <td class="px-4 py-2">{{ $r['week'] }}</td>
-              <td class="px-4 py-2">{{ number_format($r['hours'],2) }}</td>
-              <td class="px-4 py-2 text-gray-600">{{ $r['at']->format('d M Y, h:i A') }}</td>
-              <td class="px-4 py-2">
-                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset {{ $badge($r['status']) }}">
-                  {{ ucfirst($r['status']) }}
-                </span>
-              </td>
-              <td class="px-4 py-2 text-right">
-                <div class="inline-flex items-center gap-1">
-                  <a href="{{ url('/admin/timesheets') }}" class="rounded-md border px-2 py-1 hover:bg-gray-50">Review</a>
-                  @if($r['status']==='submitted')
-                    <button class="rounded-md bg-green-600 text-white px-2 py-1 hover:bg-green-700">Approve</button>
-                    <button class="rounded-md bg-red-600 text-white px-2 py-1 hover:bg-red-700">Reject</button>
-                  @endif
+
+    <div class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <p class="text-sm text-gray-500">Active staff</p>
+            <p class="mt-3 text-3xl font-semibold text-gray-900">{{ $stats['staff'] }}</p>
+            <p class="text-xs text-emerald-600 mt-1">All active and onboarded members</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <p class="text-sm text-gray-500">Clients</p>
+            <p class="mt-3 text-3xl font-semibold text-gray-900">{{ $stats['clients'] }}</p>
+            <p class="text-xs text-indigo-600 mt-1">Including active contracts</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <p class="text-sm text-gray-500">Open jobs</p>
+            <p class="mt-3 text-3xl font-semibold text-gray-900">{{ $stats['jobs'] }}</p>
+            <p class="text-xs text-amber-600 mt-1">Visible on careers page</p>
+        </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Pending timesheets</h2>
+                    <p class="text-sm text-gray-500">Approve or reject latest submissions.</p>
                 </div>
-              </td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  {{-- Quick Actions --}}
-  <section class="rounded-xl border border-gray-200 bg-white p-4">
-    <h3 class="text-base font-semibold text-gray-900">Quick Actions</h3>
-    <div class="mt-3 grid grid-cols-1 gap-2">
-      <a href="{{ url('/admin/staff') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>➕ Add Staff</span><span class="text-xs text-gray-500">Users</span>
-      </a>
-      <a href="{{ url('/admin/jobs') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>📝 Post New Job</span><span class="text-xs text-gray-500">Jobs</span>
-      </a>
-      <a href="{{ url('/admin/payroll') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>📄 Upload Payslip</span><span class="text-xs text-gray-500">Payroll</span>
-      </a>
-      <a href="{{ url('/admin/timesheets') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>✅ Approve Timesheets</span><span class="text-xs text-gray-500">Timesheets</span>
-      </a>
-    </div>
-  </section>
-</div>
-
-{{-- Secondary grid --}}
-<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-  {{-- Latest Applications --}}
-  <section class="rounded-xl border border-gray-200 bg-white overflow-hidden">
-    <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-      <h3 class="text-base font-semibold text-gray-900">Latest Applications</h3>
-      <a href="{{ url('/admin/jobs') }}" class="text-sm text-brand-700 hover:underline">View all</a>
-    </div>
-    <ul class="p-4 space-y-3">
-      @foreach($applications as $a)
-        <li class="flex items-center justify-between rounded-lg border p-3">
-          <div>
-            <p class="font-medium text-gray-900">{{ $a['name'] }}</p>
-            <p class="text-xs text-gray-500">{{ $a['job'] }} • {{ $a['submitted']->diffForHumans() }}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <a href="{{ $a['cv'] }}" class="rounded-md border px-2 py-1 hover:bg-gray-50 text-sm">View CV</a>
-            <button class="rounded-md bg-brand-600 text-white px-2 py-1 hover:bg-brand-700 text-sm">Shortlist</button>
-          </div>
-        </li>
-      @endforeach
-    </ul>
-  </section>
-
-  {{-- Certification Expiry Alerts --}}
-  <section class="rounded-xl border border-gray-200 bg-white overflow-hidden">
-    <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-      <h3 class="text-base font-semibold text-gray-900">Certification Alerts</h3>
-      <a href="{{ url('/admin/staff') }}" class="text-sm text-brand-700 hover:underline">Manage</a>
-    </div>
-    <ul class="p-4 space-y-3">
-      @foreach($expiring as $c)
-        @php $cls = $expCls($c['expires']); @endphp
-        <li class="flex items-center justify-between rounded-lg border p-3">
-          <div>
-            <p class="font-medium text-gray-900">{{ $c['staff'] }}</p>
-            <p class="text-xs text-gray-500">{{ $c['cert'] }} — Expires {{ $c['expires']->format('d M Y') }}</p>
-          </div>
-          <span class="text-[11px] rounded-md px-2 py-1 ring-1 ring-inset {{ $cls }}">
-            {{ now()->diffInDays($c['expires'], false) < 0 ? 'Expired' : 'Upcoming' }}
-          </span>
-        </li>
-      @endforeach
-    </ul>
-  </section>
-
-  {{-- Activity Log --}}
-  <section class="rounded-xl border border-gray-200 bg-white overflow-hidden">
-    <div class="p-4 border-b border-gray-200">
-      <h3 class="text-base font-semibold text-gray-900">Recent Activity</h3>
-    </div>
-    <ul class="p-4 space-y-3 text-sm">
-      <li class="flex items-start gap-3">
-        <span class="mt-0.5">✅</span>
-        <div>
-          <p class="text-gray-900">Approved 3 timesheets</p>
-          <p class="text-xs text-gray-500">Today, 10:20 AM</p>
+                <a href="{{ route('staff.timesheets.index') }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                    Manage →
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm text-gray-700">
+                    <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Staff</th>
+                            <th class="px-6 py-3 text-left">Date</th>
+                            <th class="px-6 py-3 text-left">Client</th>
+                            <th class="px-6 py-3 text-left">Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 bg-white">
+                        @forelse($pendingTimesheets as $ts)
+                            <tr>
+                                <td class="px-6 py-4">
+                                    <div class="font-semibold text-gray-900">{{ data_get($ts, 'staff.name', 'Staff member') }}</div>
+                                    <div class="text-xs text-gray-400">#{{ str_pad($ts['id'] ?? 0, 4, '0', STR_PAD_LEFT) }}</div>
+                                </td>
+                                <td class="px-6 py-4">{{ Carbon::parse($ts['date'] ?? now())->format('d M Y') }}</td>
+                                <td class="px-6 py-4">
+                                    {{ data_get($ts, 'client.name', 'Client #' . ($ts['client_id'] ?? '')) }}
+                                </td>
+                                <td class="px-6 py-4 font-semibold text-gray-900">{{ number_format(data_get($ts, 'total_hours', 0), 2) }} hrs</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500">
+                                    No timesheets waiting for review.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </li>
-      <li class="flex items-start gap-3">
-        <span class="mt-0.5">📄</span>
-        <div>
-          <p class="text-gray-900">Uploaded payslips for Sep 2025</p>
-          <p class="text-xs text-gray-500">Yesterday, 5:12 PM</p>
+
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-100 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Newly onboarded staff</h2>
+                <p class="text-sm text-gray-500">Welcome them before first shift.</p>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                @forelse($recentStaff as $member)
+                    <li class="px-6 py-4">
+                        <p class="font-semibold text-gray-900">{{ $member['name'] ?? 'Name withheld' }}</p>
+                        <p class="text-sm text-gray-500">{{ $member['role'] ?? 'Staff' }}</p>
+                        <p class="text-xs text-gray-400 mt-1">
+                            Joined {{ Carbon::parse($member['created_at'] ?? now())->diffForHumans() }}
+                        </p>
+                    </li>
+                @empty
+                    <li class="px-6 py-10 text-center text-sm text-gray-500">
+                        No recent hires to display.
+                    </li>
+                @endforelse
+            </ul>
         </div>
-      </li>
-      <li class="flex items-start gap-3">
-        <span class="mt-0.5">📝</span>
-        <div>
-          <p class="text-gray-900">Posted new job “Security Supervisor”</p>
-          <p class="text-xs text-gray-500">2 days ago</p>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Latest job posts</h2>
+                    <p class="text-sm text-gray-500">Highlight roles on careers page.</p>
+                </div>
+                <a href="{{ route('admin.jobs.index') ?? '#' }}" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700">
+                    Manage →
+                </a>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                @forelse($recentJobs as $job)
+                    <li class="px-6 py-4">
+                        <div class="font-semibold text-gray-900">{{ $job['title'] ?? 'Untitled role' }}</div>
+                        <p class="text-sm text-gray-500">
+                            {{ $job['location'] ?? 'Location TBD' }} • {{ $job['type'] ?? 'Contract' }}
+                        </p>
+                        <p class="text-xs text-gray-400 mt-1">
+                            Posted {{ Carbon::parse($job['created_at'] ?? now())->diffForHumans() }}
+                        </p>
+                    </li>
+                @empty
+                    <li class="px-6 py-10 text-center text-sm text-gray-500">
+                        No job posts yet. Create one to attract applicants.
+                    </li>
+                @endforelse
+            </ul>
         </div>
-      </li>
-    </ul>
-  </section>
+
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-100 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Quick actions</h2>
+                <p class="text-sm text-gray-500">Perform common admin tasks faster.</p>
+            </div>
+            <div class="grid gap-4 px-6 py-6 md:grid-cols-2">
+                <a href="{{ route('admin.blogs.create') ?? '#' }}"
+                   class="flex flex-col gap-2 rounded-2xl border border-gray-200 p-4 hover:border-emerald-200 hover:bg-emerald-50">
+                    <span class="text-lg">✍️</span>
+                    <p class="font-semibold text-gray-900">New blog post</p>
+                    <p class="text-xs text-gray-500">Share announcements or updates</p>
+                </a>
+                <a href="{{ route('admin.jobs.create') ?? '#' }}"
+                   class="flex flex-col gap-2 rounded-2xl border border-gray-200 p-4 hover:border-blue-200 hover:bg-blue-50">
+                    <span class="text-lg">📋</span>
+                    <p class="font-semibold text-gray-900">Create job</p>
+                    <p class="text-xs text-gray-500">Add openings to careers page</p>
+                </a>
+                <a href="{{ route('admin.staff.index') ?? '#' }}"
+                   class="flex flex-col gap-2 rounded-2xl border border-gray-200 p-4 hover:border-violet-200 hover:bg-violet-50">
+                    <span class="text-lg">👥</span>
+                    <p class="font-semibold text-gray-900">Manage staff</p>
+                    <p class="text-xs text-gray-500">Edit roles & availability</p>
+                </a>
+                <a href="{{ route('admin.contact_enquiries') }}"
+                   class="flex flex-col gap-2 rounded-2xl border border-gray-200 p-4 hover:border-amber-200 hover:bg-amber-50">
+                    <span class="text-lg">📨</span>
+                    <p class="font-semibold text-gray-900">Review enquiries</p>
+                    <p class="text-xs text-gray-500">Respond to contact form</p>
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection

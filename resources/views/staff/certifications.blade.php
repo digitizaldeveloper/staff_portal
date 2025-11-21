@@ -1,101 +1,90 @@
 @extends('layouts.app')
 
-@section('title','My Certifications')
-@section('page-heading','My Certifications & Notifications')
-
-@section('sidebar')
-<a href="{{ route('staff.dashboard') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🏠 Dashboard</a>
-<a href="{{ route('staff.profile-timesheets') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🙍 Profile & Timesheets</a>
-<a href="{{ route('staff.timesheets-payslips') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🕒 Timesheets & Payslips</a>
-<a href="{{ route('staff.payslips-personal') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🧾 Payslips & Personal</a>
-<a href="{{ route('staff.certifications') }}" class="block px-3 py-2 rounded-lg bg-gray-100 font-medium">🎓 Certifications</a>
-@endsection
-
+@section('page-heading', 'My Certifications')
 @section('content')
-@php
-  use Illuminate\Support\Carbon;
+<div class="max-w-6xl mx-auto p-6 space-y-6">
 
-  // Dummy certifications
-  $certifications = collect([
-    (object)[
-      'name' => 'First Aid Level 1',
-      'issued_by' => 'Red Crescent',
-      'expiry_date' => Carbon::now()->addMonths(6),
-    ],
-    (object)[
-      'name' => 'Fire Safety Training',
-      'issued_by' => 'Civil Defense',
-      'expiry_date' => Carbon::now()->subDays(10), // expired
-    ],
-    (object)[
-      'name' => 'Security Guard License',
-      'issued_by' => 'Govt. Authority',
-      'expiry_date' => Carbon::now()->addYears(1),
-    ],
-  ]);
+    <div class="rounded-2xl border border-gray-200 bg-white px-6 py-5 shadow-sm">
+        <h2 class="text-2xl font-semibold text-gray-900">My Certifications</h2>
+        <p class="text-sm text-gray-500">Monitor compliance status and keep documents up to date.</p>
+    </div>
 
-  // Dummy notifications
-  $notifications = collect([
-    (object)[
-      'message' => 'Your First Aid certificate will expire soon.',
-      'is_read' => false,
-      'created_at' => Carbon::now()->subDays(2),
-    ],
-    (object)[
-      'message' => 'New payslip available for September 2025.',
-      'is_read' => true,
-      'created_at' => Carbon::now()->subWeek(),
-    ],
-  ]);
-@endphp
+    <div class="grid grid-cols-1 gap-6">
 
-  <!-- Certifications -->
-  <div class="bg-white shadow rounded-lg p-6 mb-6">
-    <h2 class="text-lg font-semibold mb-4">My Certifications</h2>
-    <table class="w-full border border-gray-200 text-sm">
-      <thead class="bg-gray-50">
-        <tr>
-          <th class="px-4 py-2 text-left">Certification</th>
-          <th class="px-4 py-2 text-left">Issued By</th>
-          <th class="px-4 py-2 text-left">Expiry Date</th>
-          <th class="px-4 py-2 text-left">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        @forelse($certifications as $cert)
-          <tr class="border-t">
-            <td class="px-4 py-2">{{ $cert->name }}</td>
-            <td class="px-4 py-2">{{ $cert->issued_by }}</td>
-            <td class="px-4 py-2">{{ $cert->expiry_date->format('d M Y') }}</td>
-            <td class="px-4 py-2">
-              @if($cert->expiry_date->isPast())
-                <span class="text-red-600 font-medium">Expired</span>
-              @else
-                <span class="text-green-600 font-medium">Valid</span>
-              @endif
-            </td>
-          </tr>
+        @forelse($certs as $cert)
+        @php
+            $badgeMap = [
+                'valid' => 'bg-emerald-100 text-emerald-700',
+                'expired' => 'bg-rose-100 text-rose-700',
+                'warning' => 'bg-amber-100 text-amber-700',
+            ];
+            $badgeClass = $badgeMap[$cert->status] ?? 'bg-gray-100 text-gray-600';
+        @endphp
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">{{ $cert->name }}</h3>
+                    <p class="text-sm text-gray-500">#{{ $cert->number }}</p>
+                </div>
+                <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold {{ $badgeClass }}">
+                    <span class="h-2 w-2 rounded-full bg-current"></span>
+                    {{ ucfirst($cert->status) }}
+                </span>
+            </div>
+
+            <dl class="mt-4 grid gap-4 text-sm text-gray-600 sm:grid-cols-3">
+                <div>
+                    <dt class="font-semibold text-gray-500">Issued</dt>
+                    <dd class="text-gray-900">{{ $cert->issue_date }}</dd>
+                </div>
+                <div>
+                    <dt class="font-semibold text-gray-500">Expiry</dt>
+                    <dd class="text-gray-900">{{ $cert->expiry_date }}</dd>
+                </div>
+                <div>
+                    <dt class="font-semibold text-gray-500">Document</dt>
+                    <dd>
+                        @if($cert->document)
+                            <a href="{{ asset($cert->document) }}" target="_blank"
+                               class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
+                                View approved file
+                            </a>
+                        @else
+                            <span class="text-gray-400">Not uploaded</span>
+                        @endif
+                    </dd>
+                </div>
+            </dl>
+
+            <div class="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <form action="/staff/certifications/upload/{{ $cert->id }}" method="POST" enctype="multipart/form-data" class="space-y-3">
+                    @csrf
+                    <div class="space-y-1">
+                        <label class="text-sm font-semibold text-gray-700">Upload updated document</label>
+                        <input type="file" name="document"
+                               class="block w-full rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-600 focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+
+                    <button class="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700">
+                        Upload for review
+                    </button>
+                </form>
+
+                @if($cert->pending_document)
+                    <p class="mt-3 text-sm font-semibold text-amber-600">Pending admin approval…</p>
+                @elseif(!$cert->pending_document && $cert->status == 'rejected')
+                    <p class="mt-3 text-sm font-semibold text-rose-600">Previous document was rejected. Please upload a new one.</p>
+                @endif
+            </div>
+
+        </div>
         @empty
-          <tr>
-            <td colspan="4" class="px-4 py-3 text-center text-gray-500">No certifications found.</td>
-          </tr>
+            <div class="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+                No certifications have been linked to your profile yet.
+            </div>
         @endforelse
-      </tbody>
-    </table>
-  </div>
 
-  <!-- Notifications -->
-  <div class="bg-white shadow rounded-lg p-6">
-    <h2 class="text-lg font-semibold mb-4">Notifications</h2>
-    <ul class="space-y-3">
-      @forelse($notifications as $note)
-        <li class="p-3 border rounded-lg {{ $note->is_read ? 'bg-gray-50' : 'bg-yellow-50' }}">
-          <p class="text-sm">{{ $note->message }}</p>
-          <p class="text-xs text-gray-500">{{ $note->created_at->diffForHumans() }}</p>
-        </li>
-      @empty
-        <li class="text-gray-500 text-sm">No notifications yet.</li>
-      @endforelse
-    </ul>
-  </div>
+    </div>
+</div>
 @endsection

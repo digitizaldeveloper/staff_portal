@@ -1,0 +1,96 @@
+@extends('layouts.app')
+
+@section('page-heading', 'Apply for Job')
+
+@section('content')
+
+<div class="mx-auto max-w-5xl px-4 py-10 space-y-6">
+
+    <div class="rounded-3xl border border-gray-200 bg-white shadow-lg">
+        <div class="rounded-t-3xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-8 py-10 text-white">
+            <p class="text-sm uppercase tracking-[0.2em] text-emerald-100">Apply for</p>
+            <h1 class="mt-2 text-4xl font-semibold">{{ $job->title }}</h1>
+            <div class="mt-5 flex flex-wrap gap-4 text-sm font-medium">
+                <span class="inline-flex items-center rounded-full bg-white/15 px-4 py-1.5">
+                    {{ $job->type }}
+                </span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-white/15 px-4 py-1.5">
+                    📍 {{ $job->location ?? 'Flexible location' }}
+                </span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-white/15 px-4 py-1.5">
+                    💰 {{ $job->salary ?: 'Salary not disclosed' }}
+                </span>
+            </div>
+        </div>
+
+        <div class="px-8 py-8 text-gray-700 leading-relaxed">
+            {!! nl2br(e($job->description)) !!}
+        </div>
+    </div>
+
+    @if ($errors->any())
+        <div class="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-sm">
+            <p class="font-semibold">Please fix the highlighted fields below.</p>
+        </div>
+    @endif
+
+    <div class="rounded-3xl border border-gray-200 bg-white px-8 py-8 shadow-sm">
+        <h2 class="text-2xl font-semibold text-gray-900">Application form</h2>
+        <p class="mt-2 text-sm text-gray-500">Share your details and our recruitment team will reach out soon.</p>
+
+        <form action="{{ route('job.apply.submit', $job->id) }}" method="POST" enctype="multipart/form-data" class="mt-6 space-y-6">
+            @csrf
+
+            <div class="grid gap-6 md:grid-cols-2">
+                <div>
+                    <label class="text-sm font-semibold text-gray-700" for="name">Full name</label>
+                    <input type="text" name="name" id="name"
+                           value="{{ old('name') }}"
+                           class="mt-1 w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                    @error('name') <p class="mt-1 text-sm text-rose-600">{{ $message }}</p> @enderror
+                </div>
+
+                <div>
+                    <label class="text-sm font-semibold text-gray-700" for="email">Email</label>
+                    <input type="email" name="email" id="email"
+                           value="{{ old('email') }}"
+                           class="mt-1 w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                    @error('email') <p class="mt-1 text-sm text-rose-600">{{ $message }}</p> @enderror
+                </div>
+
+                <div>
+                    <label class="text-sm font-semibold text-gray-700" for="phone">Phone</label>
+                    <input type="text" name="phone" id="phone"
+                           value="{{ old('phone') }}"
+                           class="mt-1 w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                    @error('phone') <p class="mt-1 text-sm text-rose-600">{{ $message }}</p> @enderror
+                </div>
+
+                <div>
+                    <label class="text-sm font-semibold text-gray-700" for="resume">Resume (PDF, DOC)</label>
+                    <input type="file" name="resume" id="resume"
+                           class="mt-1 w-full rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 focus:border-emerald-500 focus:ring-emerald-500">
+                    @error('resume') <p class="mt-1 text-sm text-rose-600">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <div>
+                <label class="text-sm font-semibold text-gray-700" for="message">Message (optional)</label>
+                <textarea name="message" id="message" rows="4"
+                          class="mt-1 w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-900 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                          placeholder="Tell us why you're a great fit">{{ old('message') }}</textarea>
+                @error('message') <p class="mt-1 text-sm text-rose-600">{{ $message }}</p> @enderror
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <p class="text-sm text-gray-500">We’ll respond within 3 business days. Your data stays private.</p>
+                <button class="inline-flex items-center justify-center rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                    Submit application
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+@endsection

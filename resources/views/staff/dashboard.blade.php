@@ -1,231 +1,229 @@
 @extends('layouts.app')
 
-@section('title','Staff Dashboard')
-@section('page-heading','Staff Dashboard')
-
-@section('sidebar')
-<a href="{{ route('staff.dashboard') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🏠 Dashboard</a>
-<a href="{{ route('staff.profile-timesheets') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🙍 Profile & Timesheets</a>
-<a href="{{ route('staff.timesheets-payslips') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🕒 Timesheets & Payslips</a>
-<a href="{{ route('staff.payslips-personal') }}" class="block px-3 py-2 rounded-lg hover:bg-gray-50">🧾 Payslips & Personal</a>
-<a href="{{ route('staff.certifications') }}" class="block px-3 py-2 rounded-lg bg-gray-100 font-medium">🎓 Certifications</a>
-
-@endsection
+@section('page-heading', 'Staff Dashboard')
 
 @section('content')
 @php
-  use Illuminate\Support\Carbon;
+    use Illuminate\Support\Carbon;
 
-  // -------- Dummy user snapshot --------
-  $user = (object)[
-    'name' => 'Ali Raza',
-    'role' => 'Security Staff',
-    'employee_code' => 'EMP-0123',
-  ];
+    $user = auth()->user();
 
-  // -------- Current week summary --------
-  $weekStart = Carbon::now()->startOfWeek(); // Monday
-  $weekEnd   = Carbon::now()->endOfWeek();   // Sunday
-  $weekLabel = $weekStart->format('d M').' – '.$weekEnd->format('d M Y');
+    $timesheetCollection   = collect($timesheets ?? []);
+    $payslipCollection     = collect($payslips ?? []);
+    $announcementCollection = collect($announcements ?? []);
 
-  $timesheet = (object)[
-    'status' => 'draft', // draft|submitted|approved|rejected
-    'hours'  => 16.00,
-    'last_saved' => Carbon::now()->subHours(2)->setTime(Carbon::now()->hour, Carbon::now()->minute),
-    'submitted_at' => null,
-  ];
+    $upcomingShifts = collect($upcomingShifts ?? [])->take(4);
 
-  // Badge helper
-  $badge = fn($s) => [
-    'draft'     => 'bg-gray-50 text-gray-700 ring-gray-600/20',
-    'submitted' => 'bg-blue-50 text-blue-700 ring-blue-600/20',
-    'approved'  => 'bg-green-50 text-green-700 ring-green-600/20',
-    'rejected'  => 'bg-red-50 text-red-700 ring-red-600/20',
-  ][$s] ?? 'bg-gray-50 text-gray-700 ring-gray-600/20';
-
-  // -------- Site assignments --------
-  $assignments = [
-    ['site'=>'Alpha Mall — Night Shift','role'=>'Guard','since'=>Carbon::parse('2025-01-10')],
-    ['site'=>'Crescent Towers — Lobby','role'=>'Relief','since'=>Carbon::parse('2025-06-01')],
-  ];
-
-  // -------- Next shifts (dummy upcoming) --------
-  $nextShifts = [
-    ['date'=>Carbon::now()->addDay(0)->setTime(22, 0),'site'=>'Alpha Mall — Gate A','hours'=>8],
-    ['date'=>Carbon::now()->addDay(1)->setTime(22, 0),'site'=>'Alpha Mall — Gate A','hours'=>8],
-    ['date'=>Carbon::now()->addDay(3)->setTime(8, 0),'site'=>'Crescent Towers — Lobby','hours'=>8],
-  ];
-
-  // -------- Recent payslips --------
-  $payslips = [
-    ['period'=>'Sep 2025','issued'=>Carbon::parse('2025-09-30'),'net'=>105500,'url'=>'#'],
-    ['period'=>'Aug 2025','issued'=>Carbon::parse('2025-08-31'),'net'=>103200,'url'=>'#'],
-  ];
-
-  // -------- Announcements --------
-  $ann = [
-    ['title'=>'Safety Drill — Alpha Mall','body'=>'Mandatory briefing before next shift.','time'=>Carbon::now()->subHours(5)],
-    ['title'=>'Payroll Update','body'=>'September payslips are available.','time'=>Carbon::now()->subDay()],
-  ];
+    $metrics = [
+        'timesheets' => [
+            'label' => 'Timesheets submitted',
+            'value' => $timesheetCollection->count(),
+            'trend' => '+2 this month',
+            'color' => 'text-emerald-600'
+        ],
+        'hours' => [
+            'label' => 'Hours logged',
+            'value' => number_format($timesheetCollection->sum('total_hours'), 1),
+            'trend' => 'Across all shifts',
+            'color' => 'text-blue-600'
+        ],
+        'payslips' => [
+            'label' => 'Payslips available',
+            'value' => $payslipCollection->count(),
+            'trend' => 'View latest payments',
+            'color' => 'text-violet-600'
+        ],
+    ];
 @endphp
 
-{{-- Greeting + Quick Links --}}
-<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-  <section class="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-gray-600">Welcome back,</p>
-        <h2 class="text-xl font-semibold text-gray-900">{{ $user->name }}</h2>
-        <p class="text-xs text-gray-500">Employee ID: <span class="font-mono">{{ $user->employee_code }}</span> • Role: {{ $user->role }}</p>
-      </div>
-      <img src="https://i.pravatar.cc/64" class="h-14 w-14 rounded-full border" alt="Avatar">
+<div class="space-y-6">
+
+    {{-- Greeting --}}
+    <div class="rounded-3xl border border-gray-200 bg-gradient-to-br from-emerald-50 to-white p-8 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-6">
+            <div>
+                <p class="text-sm uppercase tracking-wide text-emerald-600">Welcome back</p>
+                <h1 class="mt-2 text-3xl font-semibold text-gray-900">
+                    {{ $user?->name ?? 'Team member' }}
+                </h1>
+                <p class="mt-1 text-gray-600">
+                    Here’s a quick view of your shifts, hours and payroll.
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <a href="{{ route('staff.timesheets.create') }}"
+                   class="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700">
+                    <span class="text-lg leading-none">+</span> New timesheet
+                </a>
+                <a href="{{ route('staff.timesheets.index') }}"
+                   class="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-white">
+                    View history
+                </a>
+            </div>
+        </div>
     </div>
 
-    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <a href="{{ url('/staff/timesheets/create') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>➕ New Timesheet</span><span class="text-xs text-gray-500">This week</span>
-      </a>
-      <a href="{{ url('/staff/timesheets') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>🕒 My Timesheets</span><span class="text-xs text-gray-500">History</span>
-      </a>
-      <a href="{{ url('/staff/payslips') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>🧾 Payslips</span><span class="text-xs text-gray-500">Download</span>
-      </a>
-      <a href="{{ url('/staff/profile') }}" class="flex items-center justify-between rounded-lg border px-3 py-2 hover:bg-gray-50">
-        <span>🙍 Profile</span><span class="text-xs text-gray-500">Update</span>
-      </a>
-    </div>
-  </section>
-
-  <section class="rounded-xl border border-gray-200 bg-white p-5">
-    <h3 class="text-base font-semibold text-gray-900">This Week</h3>
-    <p class="mt-1 text-xs text-gray-500">{{ $weekLabel }} • W{{ $weekStart->format('W') }}</p>
-
-    <div class="mt-3 grid grid-cols-2 gap-3">
-      <div class="rounded-lg bg-gray-50 p-3">
-        <p class="text-xs text-gray-500">Logged Hours</p>
-        <p class="text-2xl font-semibold">{{ number_format($timesheet->hours,2) }}</p>
-      </div>
-      <div class="rounded-lg bg-gray-50 p-3">
-        <p class="text-xs text-gray-500">Status</p>
-        <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset {{ $badge($timesheet->status) }}">{{ ucfirst($timesheet->status) }}</span>
-      </div>
+    {{-- Metrics --}}
+    <div class="grid gap-4 md:grid-cols-3">
+        @foreach($metrics as $metric)
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p class="text-sm text-gray-500">{{ $metric['label'] }}</p>
+                <p class="mt-3 text-3xl font-semibold text-gray-900 {{ $metric['color'] }}">
+                    {{ $metric['value'] }}
+                </p>
+                <p class="mt-1 text-xs text-gray-400">{{ $metric['trend'] }}</p>
+            </div>
+        @endforeach
     </div>
 
-    <div class="mt-3 text-xs text-gray-500">
-      @if($timesheet->status==='draft')
-        Last saved {{ $timesheet->last_saved->diffForHumans() }}.
-      @elseif($timesheet->submitted_at)
-        Submitted {{ $timesheet->submitted_at->format('d M Y, h:i A') }}.
-      @endif
+    <div class="grid gap-6 lg:grid-cols-3">
+        {{-- Timesheets --}}
+        <div class="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Recent timesheets</h2>
+                    <p class="text-sm text-gray-500">Latest submissions awaiting review.</p>
+                </div>
+                <a href="{{ route('staff.timesheets.index') }}" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700">
+                    View all →
+                </a>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm text-gray-700">
+                    <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Date</th>
+                            <th class="px-6 py-3 text-left">Client / Site</th>
+                            <th class="px-6 py-3 text-left">Hours</th>
+                            <th class="px-6 py-3 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 bg-white">
+                        @forelse($timesheetCollection->take(5) as $ts)
+                            @php
+                                $statusStyles = [
+                                    'pending' => 'bg-amber-100 text-amber-800',
+                                    'approved' => 'bg-emerald-100 text-emerald-700',
+                                    'rejected' => 'bg-rose-100 text-rose-700',
+                                ];
+                                $badgeClass = $statusStyles[$ts['status'] ?? ''] ?? 'bg-gray-100 text-gray-600';
+                            @endphp
+                            <tr>
+                                <td class="px-6 py-4">
+                                    <div class="font-semibold text-gray-900">
+                                        {{ Carbon::parse($ts['date'] ?? now())->format('d M Y') }}
+                                    </div>
+                                    <div class="text-xs text-gray-400">#{{ str_pad($ts['id'] ?? 0, 4, '0', STR_PAD_LEFT) }}</div>
+                                </td>
+                                <td class="px-6 py-4 text-gray-600">
+                                    {{ data_get($ts, 'client.name', data_get($ts, 'client_name', '—')) }}
+                                </td>
+                                <td class="px-6 py-4 font-semibold text-gray-900">
+                                    {{ number_format(data_get($ts, 'total_hours', 0), 2) }} hrs
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold {{ $badgeClass }}">
+                                        <span class="h-2 w-2 rounded-full bg-current"></span>
+                                        {{ ucfirst($ts['status'] ?? 'pending') }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500">
+                                    No timesheets to show yet.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- Upcoming Shifts --}}
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-100 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Upcoming shifts</h2>
+                <p class="text-sm text-gray-500">Stay prepared for your next assignment.</p>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                @forelse($upcomingShifts as $shift)
+                    <li class="px-6 py-4">
+                        <div class="font-semibold text-gray-900">
+                            {{ Carbon::parse($shift['date'] ?? now())->format('D, d M Y') }}
+                        </div>
+                        <p class="text-sm text-gray-500">
+                            {{ Carbon::parse($shift['date'] ?? now())->format('h:i A') }} • {{ $shift['hours'] ?? 8 }} hrs
+                        </p>
+                        <p class="text-sm text-gray-600 mt-1">{{ $shift['site'] ?? 'TBA site' }}</p>
+                    </li>
+                @empty
+                    <li class="px-6 py-10 text-center text-sm text-gray-500">
+                        No future shifts assigned yet.
+                    </li>
+                @endforelse
+            </ul>
+        </div>
     </div>
 
-    <div class="mt-3 flex items-center gap-2">
-      @if($timesheet->status==='draft')
-        <a href="{{ url('/staff/timesheets/create') }}" class="rounded-lg bg-brand-600 text-white px-3 py-1.5 text-sm hover:bg-brand-700">Continue Timesheet</a>
-      @else
-        <a href="{{ url('/staff/timesheets') }}" class="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50">View Timesheets</a>
-      @endif
-    </div>
-  </section>
-</div>
+    <div class="grid gap-6 lg:grid-cols-3">
+        {{-- Recent Payslips --}}
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-100 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Recent payslips</h2>
+                <p class="text-sm text-gray-500">Download your latest salary statements.</p>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                @forelse($payslipCollection->take(4) as $slip)
+                    <li class="flex items-center justify-between px-6 py-4">
+                        <div>
+                            <p class="font-semibold text-gray-900">
+                                {{ $slip['period'] ?? Carbon::parse($slip['created_at'] ?? now())->format('M Y') }}
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                Issued {{ Carbon::parse($slip['created_at'] ?? now())->format('d M Y') }}
+                            </p>
+                        </div>
+                        <a href="{{ asset('payslips/' . ($slip['file_path'] ?? '')) }}"
+                           class="rounded-full bg-emerald-50 px-4 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-100">
+                            Download
+                        </a>
+                    </li>
+                @empty
+                    <li class="px-6 py-10 text-center text-sm text-gray-500">
+                        Payslips will appear here once available.
+                    </li>
+                @endforelse
+            </ul>
+        </div>
 
-{{-- Main Grid --}}
-<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-  {{-- Site Assignments & Next Shifts --}}
-  <section class="xl:col-span-2 rounded-xl border border-gray-200 bg-white overflow-hidden">
-    <div class="p-5 border-b border-gray-200 flex items-center justify-between">
-      <h3 class="text-base font-semibold text-gray-900">Site Assignments & Next Shifts</h3>
-      <a href="{{ url('/staff/profile') }}" class="text-sm text-brand-700 hover:underline">View Profile</a>
+        {{-- Announcements --}}
+        <div class="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div class="border-b border-gray-100 px-6 py-4">
+                <h2 class="text-lg font-semibold text-gray-900">Announcements</h2>
+                <p class="text-sm text-gray-500">Latest updates from HR and operations.</p>
+            </div>
+            <ul class="divide-y divide-gray-100">
+                @forelse($announcementCollection->take(5) as $note)
+                    <li class="px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <p class="font-semibold text-gray-900">{{ $note['title'] ?? 'Notice' }}</p>
+                            <span class="text-xs text-gray-400">
+                                {{ Carbon::parse($note['time'] ?? now())->diffForHumans() }}
+                            </span>
+                        </div>
+                        <p class="mt-1 text-sm text-gray-600">
+                            {{ $note['body'] ?? 'Details coming soon.' }}
+                        </p>
+                    </li>
+                @empty
+                    <li class="px-6 py-10 text-center text-sm text-gray-500">
+                        You’ll see announcements here once posted.
+                    </li>
+                @endforelse
+            </ul>
+        </div>
     </div>
-    <div class="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <div>
-        <p class="text-sm font-semibold text-gray-900 mb-2">Assignments</p>
-        <ul class="space-y-2">
-          @foreach($assignments as $as)
-            <li class="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p class="font-medium text-gray-900">{{ $as['site'] }}</p>
-                <p class="text-xs text-gray-500">Role: {{ $as['role'] }} • Since: {{ $as['since']->format('d M Y') }}</p>
-              </div>
-              <span class="text-[11px] rounded-md bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100 px-2 py-0.5">
-                Active
-              </span>
-            </li>
-          @endforeach
-        </ul>
-      </div>
-
-      <div>
-        <p class="text-sm font-semibold text-gray-900 mb-2">Next Shifts</p>
-        <ul class="space-y-2">
-          @foreach($nextShifts as $s)
-            <li class="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p class="font-medium text-gray-900">{{ $s['date']->format('D, d M Y') }}</p>
-                <p class="text-xs text-gray-500">Start: {{ $s['date']->format('h:i A') }} • {{ $s['hours'] }} hrs • {{ $s['site'] }}</p>
-              </div>
-              <a href="{{ url('/staff/timesheets/create') }}" class="rounded-md border px-2 py-1 text-sm hover:bg-gray-50">Log</a>
-            </li>
-          @endforeach
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  {{-- Payslips --}}
-  <section class="rounded-xl border border-gray-200 bg-white overflow-hidden">
-    <div class="p-5 border-b border-gray-200 flex items-center justify-between">
-      <h3 class="text-base font-semibold text-gray-900">Recent Payslips</h3>
-      <a href="{{ url('/staff/payslips') }}" class="text-sm text-brand-700 hover:underline">View all</a>
-    </div>
-    <ul class="p-5 space-y-3">
-      @foreach($payslips as $p)
-        <li class="flex items-center justify-between rounded-lg border p-3">
-          <div>
-            <p class="font-medium text-gray-900">{{ $p['period'] }}</p>
-            <p class="text-xs text-gray-500">Issued: {{ $p['issued']->format('d M Y') }}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium">{{ number_format($p['net']) }}</span>
-            <a href="{{ $p['url'] }}" class="rounded-md border px-2 py-1 text-sm hover:bg-gray-50">View</a>
-            <a href="{{ $p['url'] }}" class="rounded-md bg-brand-600 text-white px-2 py-1 text-sm hover:bg-brand-700">Download</a>
-          </div>
-        </li>
-      @endforeach
-      @if(empty($payslips))
-        <li class="text-sm text-gray-500">No payslips yet.</li>
-      @endif
-    </ul>
-  </section>
-</div>
-
-{{-- Bottom Grid --}}
-<div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-  {{-- Announcements --}}
-  <section class="rounded-xl border border-gray-200 bg-white overflow-hidden">
-    <div class="p-5 border-b border-gray-200">
-      <h3 class="text-base font-semibold text-gray-900">Announcements</h3>
-    </div>
-    <ul class="p-5 space-y-3 text-sm">
-      @foreach($ann as $a)
-        <li class="rounded-lg border p-3">
-          <p class="font-medium text-gray-900">{{ $a['title'] }}</p>
-          <p class="text-gray-700 mt-1">{{ $a['body'] }}</p>
-          <p class="text-xs text-gray-500 mt-1">{{ $a['time']->diffForHumans() }}</p>
-        </li>
-      @endforeach
-    </ul>
-  </section>
-
-  {{-- Quick Help --}}
-  <section class="rounded-xl border border-gray-200 bg-white p-5">
-    <h3 class="text-base font-semibold text-gray-900">Quick Help</h3>
-    <ul class="mt-3 list-disc list-inside text-sm text-gray-700 space-y-1">
-      <li>To submit hours, open <a class="text-brand-700 hover:underline" href="{{ url('/staff/timesheets/create') }}">New Timesheet</a>.</li>
-      <li>Update personal info in <a class="text-brand-700 hover:underline" href="{{ url('/staff/profile') }}">Profile</a>.</li>
-      <li>Download your latest salary slip in <a class="text-brand-700 hover:underline" href="{{ url('/staff/payslips') }}">Payslips</a>.</li>
-    </ul>
-  </section>
 </div>
 @endsection
